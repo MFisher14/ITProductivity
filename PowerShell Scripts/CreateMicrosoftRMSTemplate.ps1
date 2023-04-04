@@ -1,53 +1,53 @@
-﻿#Set-ExecutionPolicy Unrestricted
-#$AdminEmailAddress $EmailAddress $Email2 needs to be user inputted variable
+﻿<#
+.Created by: @MFisher14
+.Purpose: A quick script to enable RMS Templates on Legacy 365 Tenants
+#>
+
+# Pass in global admin email
+Param([String]$Admin)
+
+#Check if running elevated. If not, elevate.
+If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
+    Start-Process powershell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $PSCommandPath) -Verb RunAs
+    Exit
+}
+
+# Define variables and check for installed modules
+$Modules = @(
+    # Required Packages and Modules
+    "AzureAD"
+    "AIPService"
+    "PSWSMan"
+    "ExchangeOnlineManagement"
+
+)
+
+foreach ($Module in $Modules) {
+    $Module=Get-InstalledModule -Name $Module -ErrorAction SilentlyContinue
+    if($Module.count -eq 0){
+        Write-Host $Module module is not installed. Installing now...
+        Install-Module -Name $Module
+        Import-Module -Name $Module -ErrorAction SilentlyContinue
+    }
+    else{
+        Write-Host $Module module is already installed
+    }
+}
+#NuGet and AIP have a different install.
+$NuGet=Get-InstalledModule -Name NuGet -ErrorAction SilentlyContinue
+$AIPValue=Get-AipService -ErrorAction SilentlyContinue
 
 
-$AzureAD=Get-InstalledModule -Name AzureAD
-$AIPService=Get-InstalledModule -Name AIPService
-$PSWSMan=Get-InstalledModule -Name PSWSMan
-$ExchangeOnlineManagement=Get-InstalledModule -Name PSWSMan
-$AIPValue=Get-AipService
-Param($AdminEmailAddress)
-Param($Addr1)
-Param($Addr2)
-
-
-
-if($AzureAD.count -eq 0){
-    Install-Module -Name AzureAD
-    Import-Module -Name AzureAD
+# Check if NuGet is installed
+if($NuGet.count -eq 0){
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 }
 else{
-    Write-Host AzureAD Module is already installed
+    Write-Host NuGet Package is already installed
 }
 
-if($AIPService.count -eq 0){
-    Install-Module -Name AIPService
-    Import-Module -Name AIPService
-}
-else{
-    Write-Host AIPService Module is already installed
-}
-
-if($PSWSMan.count -eq 0){
-    Install-Module -Name PSWSMan
-    Import-Module -Name PSWSMan
-}
-else{
-    Write-Host PSWSMan Module is already installed
-}
-
-if($ExchangeOnlineManagement.count -eq 0){
-    Install-Module -Name ExchangeOnlineManagement
-    Update-Module -Name ExchangeOnlineManagement
-    Import-Module -Name ExchangeOnlineManagement
-}
-else{
-    Write-Host ExchangeOnlineManagement Module is already installed
-}
-
-
-Connect-AzureAD -AccountId $AdminEmailAddress
+#Connect to Services
+Connect-AzureAD -AccountId $Admin
 Connect-AipService
 
 
@@ -59,8 +59,9 @@ else{
     Enable-AipService
 }
 
-Connect-ExchangeOnline -UserPrincipalName $AdminEmailAddress
+Connect-ExchangeOnline -UserPrincipalName $Admin
 
+#Check if Azure RMS Licensing is enabled
 $PullIRMValue=Get-IRMConfiguration
 
 if($PullIRMValue.AzureRMSLicensingEnabled -eq $true){
@@ -72,10 +73,8 @@ else{
 }
 
 Write-Host Testing the IRM Configuration...
-Test-IRMConfiguration -Sender $Addr1 -Recipient $Addr2
+Test-IRMConfiguration -Sender $Admin -Recipient $Admin
 
 
-
-#Disconnect-AzureAD
-#Set-ExecutionPolicy Restricted
+Set-ExecutionPolicy Restricted
 Exit 0;
