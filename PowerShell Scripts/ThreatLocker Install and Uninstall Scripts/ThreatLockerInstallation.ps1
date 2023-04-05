@@ -1,10 +1,13 @@
 ﻿<#
-.Created By:
-.Purpose: Install ThreatLocker. If the Main Organization has Grandchildren in Datto RMM, add as
-.         Groups under the main organization.
+.
+. Created By: MFisher14
+. Purpose: Install ThreatLocker. This script is meant to be run from PowerShell.
+.          It pulls either a -GroupID parameter, or a -UniqueID and a
+.          -CompanyName parameter. These can be found in the ThreatLocker Portal.
+.
 #>
 
-Param([String]$CompanyName, [String]$UniqueIdentifier, [String]$GroupID) ## Parameters are defined first.
+Param([String]$CompanyName, [String]$UniqueID, [String]$GroupID) ## Parameters are defined first.
 
 
 [Net.ServicePointManager]::SecurityProtocol = "Tls12"  ## Verify TLS 1.2
@@ -19,7 +22,7 @@ Write-Output The value of GroupID is: $GroupID >> $LogFilePath
 
 $ThreatLockerParameters = @(
     "CompanyName"
-    "UniqueIdentifier"
+    "UniqueID"
     "GroupID"
 )
 foreach ($ThreatLockerParameter in $ThreatLockerParameters) {
