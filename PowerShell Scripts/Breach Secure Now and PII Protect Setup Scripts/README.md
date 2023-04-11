@@ -8,13 +8,18 @@ Click on this link
 Right-Click on the page
 Click Save-As
 Save the file as a .ps1 file in a directory that you want to run it from. (I typically do the C: drive for convenience)
-Open Powershell as an administrator and type (in my case) cd /
-Press ENTER
-Type Set-ExecutionPolicy Unrestricted
-Press ENTER
-Approve all prompts
-Type ./BreachSecureNowAzureADSetup.ps1
-Press ENTER
-You will have to sign-in as an administrator.
+Open Powershell as an administrator and type (in my case) 
+
+    cd /
+    
+Press ENTER and type 
+
+    Set-ExecutionPolicy Unrestricted
+    
+Press ENTER and approve all prompts. Then type
+
+    ./BreachSecureNowAzureADSetup.ps1
+
+Press ENTER and you will be prompted to sign-in as an administrator on Office 365.
 
 Please reach out with any comments, questions, or concerns.
