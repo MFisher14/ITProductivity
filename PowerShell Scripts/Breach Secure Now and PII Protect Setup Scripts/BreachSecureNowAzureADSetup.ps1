@@ -1,4 +1,9 @@
-﻿
+﻿<#
+.Created by: @MFisher14
+.Purpose: A quick script to create required 365 Security groups for Breach Secure Now / PII Protect
+.         Automatically adds licensed users with the same domain as admin account to the groups
+.         based on job title.
+#>
 ## Connect to AzureAD
 Connect-AzureAD
 
@@ -121,5 +126,8 @@ foreach ($User in $AzureUsers) {
     }
 
 }
+
+## Set the execution policy back to restricted
+Set-ExecutionPolicy Restricted
 
 Exit
