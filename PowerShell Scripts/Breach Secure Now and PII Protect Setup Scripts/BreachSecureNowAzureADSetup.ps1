@@ -104,22 +104,22 @@ foreach ($User in $AzureUsers) {
         if ($User.JobTitle -like $JobTitle) {
             $isManager = $true
             Break isJobTitleManagement
-            Write-Output $User.DisplayName ' is a ' $User.JobTitle
+#            Write-Output $User.DisplayName ' is a ' $User.JobTitle
         }
         else {
             $isManager = $false
-            Write-Output $User.DisplayName ' is not a manager. They are a ' $User.JobTitle
+ #           Write-Output $User.DisplayName ' is not a manager. They are a ' $User.JobTitle
         }
         }
 
     ## Place the user in the correct group
     if (($IsUserInGroup -eq $false) -and ($isManager -eq $true) -and ($isLicensedUser -eq $true)) {
         Add-AzureADGroupMember -ObjectId $BSNManagersObjId -RefObjectId $User.ObjectId
-        Write-Output $User.DisplayName ' is an manager'
+ #       Write-Output $User.DisplayName ' is an manager'
     }
     elseif (($IsUserInGroup -eq $false) -and ($isManager -eq $false) -and ($isLicensedUser -eq $true)) {
         Add-AzureADGroupMember -ObjectId $BSNEmployeesObjId -RefObjectId $User.ObjectId
-        Write-Output $User.DisplayName ' is a employee'
+ #       Write-Output $User.DisplayName ' is a employee'
     }
     else {
         Write-Output 'Something went wrong, or ' $User.DisplayName ' is not licensed.'
