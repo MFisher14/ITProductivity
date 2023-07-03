@@ -48,7 +48,9 @@ foreach ($BSNGroupFound in $FindBSNGroups) {
 }
 
 ## Get AzureAD users. Filtering out all commonly used scanning, copying, and faxing email addresses
-$AzureUsers = Get-AzureADUser | Where UserPrincipalName -Like $DomainFormat | Where UserPrincipalName -NotLike 'scan*' | Where UserPrincipalName -NotLike 'copie*' | Where UserPrincipalName -NotLike 'fax*' | Where UserPrincipalName -NotLike 'zz*' | Where UserType -NotLike 'Guest'
+$AzureUsers = Get-AzureADUser | Where UserPrincipalName -Like $DomainFormat | Where UserPrincipalName -NotLike 'scan*' | Where UserPrincipalName -NotLike 'copie*' | Where UserPrincipalName -NotLike 'fax*' | Where UserPrincipalName -NotLike 'zz*' | Where UserType -NotLike 'Guest' | Where UserPrincipalName -NotLike 'estimat*' | Where UserPrincipalName -NotLike '*202*' | Where UserPrincipalName -NotLike '*201*'
+##$AzureUsers = Get-AzureADUser | Where UserPrincipalName -NotLike 'scan*' | Where UserPrincipalName -NotLike 'copie*' | Where UserPrincipalName -NotLike 'fax*' | Where UserPrincipalName -NotLike 'zz*' | Where UserType -NotLike 'Guest' | Where UserPrincipalName -NotLike 'estimat*' | Where UserPrincipalName -NotLike '*20*'
+Write-Output $AzureUsers
 
 ## Set Job Titles that desgnate manager role in BSN
 $JobTitles = @(
@@ -129,5 +131,7 @@ foreach ($User in $AzureUsers) {
 
 ## Set the execution policy back to restricted
 Set-ExecutionPolicy Restricted
+
+Start-Sleep -Seconds 10
 
 Exit
