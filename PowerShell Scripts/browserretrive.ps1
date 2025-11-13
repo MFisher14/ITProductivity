@@ -39,4 +39,4 @@ $Headers = @{
 	"Content-Type" = "application/octet-stream"
 }
 
-Invoke-RestMethod -Uri "https://content.dropboxapi.com/2/files/upload" -Method Post -InFile $FilePath -Headers $Headers==
+Invoke-RestMethod -Uri "https://content.dropboxapi.com/2/files/upload" -Method Post -InFile $FilePath -Headers $Headers
