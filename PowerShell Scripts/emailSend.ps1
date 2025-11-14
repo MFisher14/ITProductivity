@@ -65,7 +65,7 @@ $button = New-Object System.Windows.Forms.Button
 $button.Text = "Go to Helpdesk Website"
 $button.Size = New-Object System.Drawing.Size(200,30)
 $button.Location = New-Object System.Drawing.Point(20, 180)
-Click({
+$button.Add_Click({
     # Variables
     $tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
     $clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
