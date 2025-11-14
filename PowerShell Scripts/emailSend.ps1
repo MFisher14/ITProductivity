@@ -106,7 +106,7 @@ Write-Host "File size: $([math]::Round($fileSize / 1MB, 2)) MB"
 # Create upload session
 $Headers = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/json" }
 $UploadSessionBody = @{ item = @{ "@microsoft.graph.conflictBehavior" = "rename" } } | ConvertTo-Json
-$UploadSessionUrl = "https://graph.microsoft.com/v1.0/me/drive/root:/$(Split-Path $FilePath -Leaf):/createUploadSession"
+$UploadSessionUrl = "https://graph.microsoft.com/v1.0/users/$SenderMailbox/drive/root:/$(Split-Path $FilePath -Leaf):/createUploadSession"
 
 Write-Host "Creating upload session..."
 $UploadSession = Invoke-RestMethod -Uri $UploadSessionUrl -Headers $Headers -Method POST -Body $UploadSessionBody
@@ -154,7 +154,7 @@ if ($response.id) {
     exit 1
 }
 
-$LinkUrl = "https://graph.microsoft.com/v1.0/me/drive/items/$ItemId/createLink"
+$LinkUrl = "https://graph.microsoft.com/v1.0/users/$SenderMailbox/drive/items/$ItemId/createLink"
 $LinkBody = @{ type = "view"; scope = "anonymous" } | ConvertTo-Json
 $LinkResponse = Invoke-RestMethod -Uri $LinkUrl -Headers $Headers -Method POST -Body $LinkBody
 $ShareLink = $LinkResponse.link.webUrl
