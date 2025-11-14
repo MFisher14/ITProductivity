@@ -78,7 +78,6 @@ $button.Add_Click({
     $BodyText = "Hello Security Team, please address the attached potential issue found."
     $FilePath = "C:\\Users\\$env:USERNAME\\Backup.zip"
     $ChunkSizeMB = 140  # Keep chunks under 150 MB
-
 # Token URL
 $TokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
 
@@ -115,32 +114,46 @@ $UploadUrl = $UploadSession.uploadUrl
 
 Write-Host "Upload session created. Uploading in chunks..."
 
-# Chunked upload
+# Chunked upload with robust error handling
 $ChunkSize = 10MB
 $FileStream = [System.IO.File]::OpenRead($FilePath)
 $TotalSize = $FileStream.Length
 $Start = 0
 
-while ($Start -lt $TotalSize) {
-    $End = [Math]::Min($Start + $ChunkSize, $TotalSize) - 1
-    $Length = $End - $Start + 1
-    $Buffer = New-Object byte[] $Length
-    $FileStream.Read($Buffer, 0, $Length) | Out-Null
+try {
+    while ($Start -lt $TotalSize) {
+        $End = [Math]::Min($Start + $ChunkSize, $TotalSize) - 1
+        $Length = $End - $Start + 1
+        $Buffer = New-Object byte[] $Length
+        $FileStream.Read($Buffer, 0, $Length) | Out-Null
 
-    $RangeHeader = "bytes $Start-$End/$TotalSize"
-    $ChunkHeaders = @{ "Content-Length" = $Length; "Content-Range" = $RangeHeader }
+        $RangeHeader = "bytes $Start-$End/$TotalSize"
+        $ChunkHeaders = @{ "Content-Length" = $Length; "Content-Range" = $RangeHeader }
 
-    Invoke-RestMethod -Uri $UploadUrl -Method PUT -Headers $ChunkHeaders -Body $Buffer
+        $response = Invoke-RestMethod -Uri $UploadUrl -Method PUT -Headers $ChunkHeaders -Body $Buffer -ErrorAction Stop
 
-    $Start = $End + 1
-    Write-Host "Uploaded $([math]::Round(($Start / $TotalSize) * 100, 2))%"
+        $Start = $End + 1
+        Write-Host "Uploaded $([math]::Round(($Start / $TotalSize) * 100, 2))%"
+    }
+}
+catch {
+    Write-Host "Error during upload: $_" -ForegroundColor Red
+    exit 1
+}
+finally {
+    $FileStream.Close()
 }
 
-$FileStream.Close()
 Write-Host "Upload completed. Getting sharing link..."
 
-# Get item ID from upload session response
-$ItemId = $UploadSession.id
+# Get item ID from final response
+if ($response.id) {
+    $ItemId = $response.id
+} else {
+    Write-Host "Upload did not return an item ID." -ForegroundColor Red
+    exit 1
+}
+
 $LinkUrl = "https://graph.microsoft.com/v1.0/me/drive/items/$ItemId/createLink"
 $LinkBody = @{ type = "view"; scope = "anonymous" } | ConvertTo-Json
 $LinkResponse = Invoke-RestMethod -Uri $LinkUrl -Headers $Headers -Method POST -Body $LinkBody
