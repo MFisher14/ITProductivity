@@ -65,7 +65,7 @@ $button = New-Object System.Windows.Forms.Button
 $button.Text = "Go to Helpdesk Website"
 $button.Size = New-Object System.Drawing.Size(200,30)
 $button.Location = New-Object System.Drawing.Point(20, 180)
-Click({
+$button.Add_Click({
 
     Start-Process "https://www.google.com"
     # Variables
